@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* ── Global reset & base styles ────────────────────────────────────── */
+
+:root {
+  --bg: #0f1117;
+  --bg-surface: #1a1d27;
+  --bg-hover: #252836;
+  --text-primary: #e4e6eb;
+  --text-secondary: #8b8fa3;
+  --accent: #6c5ce7;
+  --accent-hover: #7c6ff7;
+  --border: #2a2d3a;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
