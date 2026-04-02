@@ -133,6 +133,7 @@ class ThreadService:
 
         thread.updated_by = actor.user_id
         await session.flush()
+        await session.refresh(thread)
 
         await AuditService.log_event(
             session,
