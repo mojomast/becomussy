@@ -45,7 +45,7 @@ class TestResumeBundle:
                 "name": "Resume test project",
                 "purpose": "Testing the resume bundle.",
                 "current_phase": "testing",
-                "next_steps_json": ["Run tests", "Review results"],
+                "next_steps_json": [{"step": "Run tests"}, {"step": "Review results"}],
             },
             headers=headers,
         )

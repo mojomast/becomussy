@@ -44,16 +44,14 @@ def _create_test_engine():
 
 
 # ── Create / drop tables for the whole test session ─────────────────────
-# We use a function-scoped fixture that checks if tables exist
-# to avoid event loop issues with session-scoped fixtures
-@pytest_asyncio.fixture(scope="session", autouse=True)
+# Use loop_scope="session" to avoid the "ScopeMismatch" error with session-scoped fixtures
+@pytest_asyncio.fixture(scope="session", autouse=True, loop_scope="session")
 async def _setup_database():
     """Create all tables before integration tests, drop them after."""
     import app.models  # noqa: F401
 
-    # Create a fresh engine for setup
     engine = _create_test_engine()
-    
+
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)

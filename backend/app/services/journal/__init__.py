@@ -53,6 +53,7 @@ class JournalService:
         )
         session.add(entry)
         await session.flush()
+        await session.refresh(entry)  # Required to load DB-generated fields (updated_at)
 
         await AuditService.log_event(
             session,
@@ -176,6 +177,7 @@ class JournalService:
 
         entry.updated_by = actor
         await session.flush()
+        await session.refresh(entry)  # Required to load DB-generated fields (updated_at)
 
         await AuditService.log_event(
             session,

@@ -88,6 +88,7 @@ class ProjectService:
         )
         session.add(project)
         await session.flush()
+        await session.refresh(project)  # Required to load DB-generated fields and relationships
 
         await AuditService.log_event(
             session,
@@ -159,6 +160,7 @@ class ProjectService:
 
         project.updated_by = actor.user_id
         await session.flush()
+        await session.refresh(project)  # Required to load DB-generated fields and relationships
 
         await AuditService.log_event(
             session,
@@ -205,6 +207,7 @@ class CommitmentService:
         )
         session.add(commitment)
         await session.flush()
+        await session.refresh(commitment)  # Required to load DB-generated fields
 
         await AuditService.log_event(
             session,
@@ -296,6 +299,7 @@ class CommitmentService:
 
         commitment.updated_by = actor.user_id
         await session.flush()
+        await session.refresh(commitment)  # Required to load DB-generated fields
 
         await AuditService.log_event(
             session,

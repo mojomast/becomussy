@@ -70,6 +70,11 @@ class GovernanceService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Proposal has already been approved",
             )
+        if proposal.approval_state == "rejected":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot approve a proposal that has been rejected",
+            )
 
         decision = ApprovalDecision(
             id=uuid.uuid4(),

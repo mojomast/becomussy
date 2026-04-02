@@ -213,9 +213,7 @@ class MemoryService:
 
         item.updated_by = actor.user_id
         await session.flush()
-
-        # Refresh to ensure relationships are loaded in the async context
-        await session.refresh(item, ["outgoing_links", "incoming_links"])
+        await session.refresh(item)  # Required to load DB-generated fields (updated_at) and relationships
 
         await AuditService.log_event(
             session,
@@ -247,6 +245,7 @@ class MemoryService:
         item.salience_score = min(current_salience + Decimal("1.00"), Decimal("999.99"))
         item.updated_by = actor.user_id
         await session.flush()
+        await session.refresh(item)  # Required to load DB-generated fields
 
         # Create a self-referencing "supports" link to record reinforcement
         link = MemoryLink(
