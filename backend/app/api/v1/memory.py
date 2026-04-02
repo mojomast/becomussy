@@ -151,6 +151,7 @@ async def reinforce_memory(
 @router.post(
     "/{memory_id}/contradict",
     response_model=MemoryLinkRead,
+    status_code=201,
     summary="Record a contradiction",
 )
 async def contradict_memory(

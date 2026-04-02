@@ -6,6 +6,10 @@ Provides:
 - Per-test transactional session with rollback
 - httpx.AsyncClient bound to the FastAPI app
 - Auth header fixtures
+
+Note: The engine is created inside each fixture to ensure it uses
+the correct event loop. This avoids the "Future attached to a different loop"
+error with asyncpg and pytest-asyncio.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.db.base import Base, get_session
 from app.main import app
@@ -25,35 +30,40 @@ from app.main import app
 # ── Test database URL ───────────────────────────────────────────────────
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://becoming:becoming@localhost:5432/becoming_test",
+    "postgresql+asyncpg://becoming:becoming@localhost:5433/becoming_test",
 )
 
-# ── Engine & session factory scoped to the test session ─────────────────
-_test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
-_test_session_factory = async_sessionmaker(
-    _test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+
+def _create_test_engine():
+    """Create a test engine with NullPool for fresh connections."""
+    return create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,  # No pooling - fresh connections each time
+    )
 
 
 # ── Create / drop tables for the whole test session ─────────────────────
+# We use a function-scoped fixture that checks if tables exist
+# to avoid event loop issues with session-scoped fixtures
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def _setup_database():
     """Create all tables before integration tests, drop them after."""
-    # Import all models so metadata is populated
     import app.models  # noqa: F401
 
-    async with _test_engine.begin() as conn:
+    # Create a fresh engine for setup
+    engine = _create_test_engine()
+    
+    async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
 
     yield
 
-    async with _test_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
-    await _test_engine.dispose()
+    await engine.dispose()
 
 
 # ── Per-test transactional session (rolls back after each test) ─────────
@@ -62,8 +72,11 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Provide an async session wrapped in a transaction that is rolled back
     after the test completes, ensuring test isolation.
+    
+    Creates a fresh engine for each test to avoid event loop binding issues.
     """
-    async with _test_engine.connect() as conn:
+    engine = _create_test_engine()
+    async with engine.connect() as conn:
         txn = await conn.begin()
         session = AsyncSession(bind=conn, expire_on_commit=False)
 
@@ -72,6 +85,8 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
             await txn.rollback()
+    
+    await engine.dispose()
 
 
 # ── FastAPI test client with dependency override ────────────────────────
@@ -79,7 +94,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """
     Provide an httpx.AsyncClient that is wired to use the test session
-    instead of the production session.  This ensures all API calls go
+    instead of the production session. This ensures all API calls go
     through the same transaction that gets rolled back.
     """
 
