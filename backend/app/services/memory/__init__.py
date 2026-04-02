@@ -79,6 +79,9 @@ class MemoryService:
         session.add(item)
         await session.flush()
 
+        # Refresh to ensure relationships are loaded in the async context
+        await session.refresh(item, ["outgoing_links", "incoming_links"])
+
         await AuditService.log_event(
             session,
             event_type="memory_created",
@@ -103,6 +106,8 @@ class MemoryService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Memory item {memory_id} not found",
             )
+        # Ensure relationships are loaded in async context
+        await session.refresh(item, ["outgoing_links", "incoming_links"])
         return item
 
     @staticmethod
@@ -173,6 +178,10 @@ class MemoryService:
         result = await session.execute(query)
         items = list(result.scalars().all())
 
+        # Ensure relationships are loaded in async context for all items
+        for item in items:
+            await session.refresh(item, ["outgoing_links", "incoming_links"])
+
         return items, total
 
     @staticmethod
@@ -204,6 +213,9 @@ class MemoryService:
 
         item.updated_by = actor.user_id
         await session.flush()
+
+        # Refresh to ensure relationships are loaded in the async context
+        await session.refresh(item, ["outgoing_links", "incoming_links"])
 
         await AuditService.log_event(
             session,
@@ -259,6 +271,9 @@ class MemoryService:
             rationale=reason,
             provenance_json={"source_ref": source_ref} if source_ref else None,
         )
+
+        # Refresh item to get updated relationships and timestamps
+        await session.refresh(item)
 
         return item
 
